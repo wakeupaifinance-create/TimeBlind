@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TimeBlind - Sovereignty</title>
+    <style>
+        :root { --bg-color: #000; --text-color: #fff; --accent-color: #3b82f6; }
+        body { background: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; overflow: hidden; }
+        .screen { display: none; width: 100%; text-align: center; }
+        .screen.active { display: block; }
+        
+        .mode-selector { display: flex; justify-content: center; gap: 10px; margin-bottom: 2rem; }
+        .mode-btn { background: #111; border: 1px solid #333; color: #666; padding: 0.5rem 1rem; border-radius: 12px; cursor: pointer; font-size: 0.7rem; transition: all 0.3s; text-transform: uppercase; letter-spacing: 0.05rem; }
+        .mode-btn.active { border-color: var(--accent-color); color: var(--accent-color); background: rgba(59, 130, 246, 0.1); }
+        
+        input { background: #111; border: 1px solid #333; color: #fff; padding: 1rem; border-radius: 12px; width: 80%; max-width: 250px; text-align: center; margin-bottom: 2rem; font-size: 0.9rem; }
+        .streak-display { font-size: 2.5rem; font-weight: 200; margin-bottom: 1rem; color: var(--accent-color); }
+        .btn-start { background: transparent; color: #fff; border: 1px solid #fff; padding: 1rem 3rem; border-radius: 50px; cursor: pointer; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.1rem; }
+        
+        #snippet-box { font-size: 1.2rem; padding: 2rem; opacity: 0.8; height: 100px; display: flex; align-items: center; justify-content: center; max-width: 80%; margin: 0 auto; line-height: 1.5; }
+        .breathing-circle { width: 50px; height: 50px; border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; margin: 2rem auto; animation: breathe 8s infinite ease-in-out; }
+        @keyframes breathe { 0%, 100% { transform: scale(0.8); opacity: 0.3; } 50% { transform: scale(1.5); opacity: 0.6; } }
+        .btn-abort { background: none; border: none; color: #444; margin-top: 3rem; text-transform: uppercase; cursor: pointer; font-size: 0.7rem; letter-spacing: 0.1rem; }
+    </style>
+</head>
+<body>
+    <div id="screen-home" class="screen active">
+        <div class="streak-display" id="streak-text">0 Days</div>
+        <input type="text" id="ritual-name" placeholder="What is your focus now?">
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="selectMode('silence', this)">Silence</button>
+            <button class="mode-btn" onclick="selectMode('knowledge', this)">Knowledge</button>
+            <button class="mode-btn" onclick="selectMode('reflection', this)">Reflection</button>
+        </div>
+        <button class="btn-start" onclick="startChallenge()">Start Ritual</button>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div id="snippet-box">Prepare...</div>
+        <div class="breathing-circle"></div>
+        <button class="btn-abort" onclick="location.reload()">Abort</button>
+    </div>
+
+    <script>
+        let currentMode = 'silence';
+        const KNOWLEDGE_POOL = [
+            "Sunlight takes 8m 20s to reach Earth.", "ENIAC weighed 27 tons.", "Neutron star teaspoon = 6bn tons.", 
+            "Earth's core is 5500°C.", "Space is a vacuum.", "Library of Alexandria was vast.", 
+            "Gold never rusts.", "Venus spins backwards.", "DNA is a double helix.", "Ocean salt = 3.5%.", 
+            "Bristlecone pines live 4800y.", "Gravity is constant.", "Octopuses have three hearts.", 
+            "A day on Venus is longer than a year.", "Honey never spoils.", "Bananas are berries.", 
+            "Sharks existed before trees.", "Sound travels faster in water.", "Humans share 50% DNA with bananas.", 
+            "The Eiffel Tower grows in summer."
+        ];
+        
+        const REFLECTION = [
+            "What is the single most important task today?",
+            "What is one thing you have been avoiding?",
+            "If you could only complete one task today, what would it be?",
+            "Commit to this action. Start now." 
+        ];
+
+        function selectMode(mode, btn) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function shuffleArray(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function startChallenge() {
+            const intent = document.getElementById('ritual-name').value || "Deep Work";
+            localStorage.setItem('last_intent', intent);
+            
+            document.getElementById('screen-home').classList.remove('active');
+            document.getElementById('screen-game').classList.add('active');
+            
+            const box = document.getElementById('snippet-box');
+            let tick = 0;
+
+            if (currentMode === 'silence') {
+                box.innerText = intent;
+                setTimeout(finish, 120000); 
+            } else if (currentMode === 'knowledge') {
+                const randomizedFacts = shuffleArray([...KNOWLEDGE_POOL]);
+                box.innerText = randomizedFacts[0];
+                const interval = setInterval(() => {
+                    tick++;
+                    if (tick >= 12) { clearInterval(interval); finish(); }
+                    else box.innerText = randomizedFacts[tick];
+                }, 10000);
+            } else if (currentMode === 'reflection') {
+                box.innerText = REFLECTION[0];
+                const interval = setInterval(() => {
+                    tick++;
+                    if (tick >= 4) { clearInterval(interval); finish(); }
+                    else box.innerText = REFLECTION[tick];
+                }, 30000);
+            }
+        }
+
+        function finish() {
+            const today = new Date().toDateString(); // 获取今天日期，如 "Tue Jun 16 2026"
+            const lastCompletedDate = localStorage.getItem('tb_last_date');
+            let streak = parseInt(localStorage.getItem('tb_streak') || 0);
+
+            // 防作弊：只有今天还没打过卡，才增加 Streak
+            if (today !== lastCompletedDate) {
+                streak += 1;
+                localStorage.setItem('tb_streak', streak);
+                localStorage.setItem('tb_last_date', today); // 锁定日期
+                alert("Ritual Completed. Streak +1. Sovereignty Maintained.2 minutes reclaimed.");
+            } else {
+                alert("Ritual Completed. Sovereignty Maintained.2 minutes reclaimed.");
+            }
+            location.reload();
+        }
+
+        window.onload = () => {
+            document.getElementById('streak-text').innerText = (localStorage.getItem('tb_streak') || 0) + " Days";
+            document.getElementById('ritual-name').value = localStorage.getItem('last_intent') || "";
+        };
+    </script>
+</body>
+</html>
